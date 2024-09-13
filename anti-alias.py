@@ -30,14 +30,6 @@ def apply_antialiasing(image: np.ndarray, kernel_size: int = 5, sigma: float = 1
     
     return result
 
-# Example usage:
-image_path = r"C:\Users\verci\Downloads\telescope1.png"
-image = cv2.imread(image_path)
-filename = 'telescope1_anti-aliased.png'
-# Apply anti-aliasing
-anti_aliased_image = apply_antialiasing(image, kernel_size=4, sigma=2)
-
-
 def check_and_prompt_overwrite(filename):
     
     def get_user_input(prompt, valid_responses, invalid_input_limit=3):
@@ -53,10 +45,18 @@ def check_and_prompt_overwrite(filename):
 
     def handle_file_exists(filename):
         while True:
-            response = get_user_input(f"{filename} already exists, do you want to overwrite it? (Y/N): ", ['yes', 'y', 'no', 'n'],5)
+            response = get_user_input(f"{filename} already exists, do you want to overwrite it? (Y/N): ", ['yes', 'y', 'no', 'n'], 5)
             if response in ['yes', 'y']:
-                print("Proceeding with overwrite...")
-                return True, filename
+                print                       ('\nx---------------------WARNING---------------------x')
+                sure_response = get_user_input("Are you really sure you want to OVERWRITE it? (Y/N): ", ['yes', 'y', 'no', 'n'], 3)
+                if sure_response in ['yes', 'y']:
+                    print("Proceeding with overwrite...")
+                    return True, filename
+                elif sure_response in ['no', 'n']:
+                    print('Operation aborted.')
+                    return False, filename
+                elif sure_response == 'ABORT':
+                    return False, filename
             elif response in ['no', 'n']:
                 return handle_rename(filename)
             elif response == 'ABORT':
@@ -88,11 +88,20 @@ def check_and_prompt_overwrite(filename):
         return handle_file_exists(filename)
     return True, filename
 
+# Example usage:
+image_path = r"anti-aliasing god un.png"
+image = cv2.imread(image_path)
+filename = 'telescope1_anti-aliased.png'
+
+# Apply anti-aliasing
+anti_aliased_image = apply_antialiasing(image, kernel_size=4, sigma=2)
+
 # Save or display the result
 overwrite, filename = check_and_prompt_overwrite(filename)
 
 if overwrite == True:
     cv2.imwrite(filename, anti_aliased_image)
     cv2.imshow('Anti-Aliased Image', anti_aliased_image)
+    print('\nImage saved!')
     cv2.waitKey(0)
     cv2.destroyAllWindows()
