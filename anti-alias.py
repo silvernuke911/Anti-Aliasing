@@ -89,9 +89,9 @@ def check_and_prompt_overwrite(filename):
     return True, filename
 
 # Example usage:
-image_path = r"anti-aliasing god un.png"
+image_path = "telescope1_anti-aliased.png"
 image = cv2.imread(image_path)
-filename = 'telescope1_anti-aliased.png'
+filename = 'telescope1_anti-aliased1.png'
 
 # Apply anti-aliasing
 anti_aliased_image = apply_antialiasing(image, kernel_size=4, sigma=2)
