@@ -1,34 +1,29 @@
-import numpy as np
-import cv2
+from PIL import Image
 import os
-from scipy.ndimage import convolve
 
-def gaussian_kernel(size: int, sigma: float = 1.0):
-    """Generate a Gaussian kernel."""
-    kernel_1d = np.linspace(-(size // 2), size // 2, size)
-    for i in range(size):
-        kernel_1d[i] = np.exp(-(kernel_1d[i]**2) / (2 * sigma**2))
-    kernel_1d /= np.sum(kernel_1d)
-    
-    kernel_2d = np.outer(kernel_1d, kernel_1d)
-    kernel_2d /= np.sum(kernel_2d)
-    
-    return kernel_2d
+def supersample_antialiasing(input_image_path, output_image_path, supersample_factor=2):
+    # Open the original image
+    img = Image.open(input_image_path)
 
-def apply_antialiasing(image: np.ndarray, kernel_size: int = 5, sigma: float = 1.0):
-    """Apply anti-aliasing to an image using Gaussian convolution."""
-    # Generate the Gaussian kernel
-    kernel = gaussian_kernel(kernel_size, sigma)
-    
-    # Apply the convolution
-    if len(image.shape) == 2:  # Grayscale image
-        result = convolve(image, kernel)
-    else:  # Color image
-        result = np.zeros_like(image)
-        for i in range(3):  # Apply to each channel
-            result[:, :, i] = convolve(image[:, :, i], kernel)
-    
-    return result
+    # If the image is in RGBA mode (with alpha channel), convert it to RGB
+    if img.mode == 'RGBA':
+        img = img.convert('RGB')
+
+    # Get original dimensions
+    original_width, original_height = img.size
+
+    # Calculate supersampled dimensions
+    supersample_width = original_width * supersample_factor
+    supersample_height = original_height * supersample_factor
+
+    # Resize the image to the supersampled dimensions (higher resolution)
+    supersampled_img = img.resize((supersample_width, supersample_height), Image.NEAREST)
+
+    # Downscale it back to original size with antialiasing
+    antialiased_img = supersampled_img.resize((original_width, original_height), Image.LANCZOS)
+
+    # Save the final antialiased image
+    antialiased_img.save(output_image_path)
 
 def check_and_prompt_overwrite(filename):
     
@@ -38,7 +33,7 @@ def check_and_prompt_overwrite(filename):
             response = input(prompt).lower().strip()
             if response in valid_responses:
                 return response
-            print("Invalid input. This is in handle user")
+            print("Invalid input. Valid inputs are [ Y , N , YES , NO ]")
             attempts += 1
         print("Exceeded maximum invalid input limit. Operation aborted.")
         return 'ABORT'
@@ -48,7 +43,7 @@ def check_and_prompt_overwrite(filename):
             response = get_user_input(f"{filename} already exists, do you want to overwrite it? (Y/N): ", ['yes', 'y', 'no', 'n'], 5)
             if response in ['yes', 'y']:
                 print                       ('\nx---------------------WARNING---------------------x')
-                sure_response = get_user_input("Are you really sure you want to OVERWRITE it? (Y/N): ", ['yes', 'y', 'no', 'n'], 3)
+                sure_response = get_user_input("Are you really sure you want to OVERWRITE it? (Y/N): ", ['yes', 'y', 'no', 'n'], 5)
                 if sure_response in ['yes', 'y']:
                     print("Proceeding with overwrite...")
                     return True, filename
@@ -65,9 +60,9 @@ def check_and_prompt_overwrite(filename):
     def handle_rename(filename):
         while True:
             rename_response = get_user_input('Would you like to rename it? (Y/N): ', ['yes', 'y', 'no', 'n'],3)
-            if rename_response in ['yes', 'y']:
+            if rename_response in ['yes', 'y', '1']:
                 return get_new_filename()
-            elif rename_response in ['no', 'n']:
+            elif rename_response in ['no', 'n', '0']:
                 print('Operation aborted.')
                 return False, filename
             elif rename_response == 'ABORT':
@@ -75,8 +70,8 @@ def check_and_prompt_overwrite(filename):
 
     def get_new_filename():
         while True:
-            new_filename = input('Input the new name of the file: ').strip() + '.gif'
-            if new_filename == 'ABORT.gif':
+            new_filename = input('Input the new name of the file: ').strip() + extension
+            if new_filename == ('ABORT' + extension):
                 print('Operation aborted.')
                 return False, new_filename
             if not os.path.isfile(new_filename):
@@ -88,20 +83,15 @@ def check_and_prompt_overwrite(filename):
         return handle_file_exists(filename)
     return True, filename
 
-# Example usage:
-image_path = "telescope1_anti-aliased1.png"
-image = cv2.imread(image_path)
-filename = 'telescope1_anti-aliased2.png'
 
-# Apply anti-aliasing
-anti_aliased_image = apply_antialiasing(image, kernel_size=4, sigma=2)
+# Example usage
+input_image_path = "telescope1.png"
+output_image_path = "tel1_antialiased.png"
+supersample_factor = 4  # You can change this to 3, 4, etc.
+extension = '.png'
 
-# Save or display the result
-overwrite, filename = check_and_prompt_overwrite(filename)
+overwrite, filename = check_and_prompt_overwrite(output_image_path)
 
 if overwrite == True:
-    cv2.imwrite(filename, anti_aliased_image)
-    cv2.imshow('Anti-Aliased Image', anti_aliased_image)
+    supersample_antialiasing(input_image_path, filename, supersample_factor)
     print('\nImage saved!')
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()

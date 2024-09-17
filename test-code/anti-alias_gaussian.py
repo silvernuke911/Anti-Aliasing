@@ -1,29 +1,35 @@
-from PIL import Image
+import numpy as np
+import cv2
 import os
+import matplotlib.pyplot as plt
+from scipy.ndimage import convolve
 
-def supersample_antialiasing(input_image_path, output_image_path, supersample_factor=2):
-    # Open the original image
-    img = Image.open(input_image_path)
+def gaussian_kernel(size: int, sigma: float = 1.0):
+    """Generate a Gaussian kernel."""
+    kernel_1d = np.linspace(-(size // 2), size // 2, size)
+    for i in range(size):
+        kernel_1d[i] = np.exp(-(kernel_1d[i]**2) / (2 * sigma**2))
+    kernel_1d /= np.sum(kernel_1d)
+    
+    kernel_2d = np.outer(kernel_1d, kernel_1d)
+    kernel_2d /= np.sum(kernel_2d)
+    
+    return kernel_2d
 
-    # If the image is in RGBA mode (with alpha channel), convert it to RGB
-    if img.mode == 'RGBA':
-        img = img.convert('RGB')
-
-    # Get original dimensions
-    original_width, original_height = img.size
-
-    # Calculate supersampled dimensions
-    supersample_width = original_width * supersample_factor
-    supersample_height = original_height * supersample_factor
-
-    # Resize the image to the supersampled dimensions (higher resolution)
-    supersampled_img = img.resize((supersample_width, supersample_height), Image.NEAREST)
-
-    # Downscale it back to original size with antialiasing
-    antialiased_img = supersampled_img.resize((original_width, original_height), Image.LANCZOS)
-
-    # Save the final antialiased image
-    antialiased_img.save(output_image_path)
+def apply_antialiasing(image: np.ndarray, kernel_size: int = 5, sigma: float = 1.0):
+    """Apply anti-aliasing to an image using Gaussian convolution."""
+    # Generate the Gaussian kernel
+    kernel = gaussian_kernel(kernel_size, sigma)
+    
+    # Apply the convolution
+    if len(image.shape) == 2:  # Grayscale image
+        result = convolve(image, kernel)
+    else:  # Color image
+        result = np.zeros_like(image)
+        for i in range(3):  # Apply to each channel
+            result[:, :, i] = convolve(image[:, :, i], kernel)
+    
+    return result
 
 def check_and_prompt_overwrite(filename):
     
@@ -83,14 +89,37 @@ def check_and_prompt_overwrite(filename):
         return handle_file_exists(filename)
     return True, filename
 
+# Example usage:
+image_path = "telescope1.png"
+image = cv2.imread(image_path)
+filename = 'telescope1_anti-aliased3.png'
+plt.imshow(image)
+plt.show()
+# Apply anti-aliasing
+anti_aliased_image = apply_antialiasing(image, kernel_size=4, sigma=2)
 
-# Example usage
-input_image_path = "telescope1.png"
-output_image_path = "tel1_antialiased.png"
-supersample_factor = 4  # You can change this to 3, 4, etc.
+# Save or display the result
+# overwrite, filename = check_and_prompt_overwrite(filename)
 
-overwrite, filename = check_and_prompt_overwrite(output_image_path)
+# if overwrite == True:
+#     cv2.imwrite(filename, anti_aliased_image)
+#     plt.imshow(anti_aliased_image)
+#     plt.show()
+#     print('\nImage saved!')
 
-if overwrite == True:
-    supersample_antialiasing(input_image_path, output_image_path, supersample_factor)
-    print('\nImage saved!')
+#     # cv2.imshow('Anti-Aliased Image', anti_aliased_image)
+#     print('\nImage saved!')
+#     # cv2.waitKey(0)
+#     # cv2.destroyAllWindows()
+
+output_path = r'result_mages\\'
+kernel_size_list = range(1,20)
+sigma_list = range(1,10)
+for kernel_size in kernel_size_list:
+    for sigma in sigma_list:
+        filename = f'gauss_antialias_k{kernel_size}_s{sigma}.png'
+        output_filepath = output_path+filename
+        anti_aliased_image = apply_antialiasing(image, kernel_size, sigma)
+        cv2.imwrite(output_filepath, anti_aliased_image)
+        print(f'Saved gauss_antialias_k{kernel_size}_s{sigma}')
+
